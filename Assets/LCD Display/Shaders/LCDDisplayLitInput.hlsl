@@ -52,6 +52,7 @@ half3 SampleLCDDiplay(float2 uv, half3 emissionColor, TEXTURE2D_PARAM(emissionMa
     half scaleFactor = max(dot(duvdx, duvdx), dot(duvdy, duvdy));
     half mipmapLevel = 0.5 * log2(scaleFactor);
     //half mipmapLevel = ComputeTextureLOD(pixelMaskUV, _PixelMask_TexelSize.zw);
+    //half mipmapLevel = CALCULATE_TEXTURE2D_LOD(_PixelMask, sampler_PixelMask, pixelMaskUV);
 
     half pixelization = saturate(Remap01(mipmapLevel, half2(1, 4)));
     half pixelremoval = saturate(Remap01(mipmapLevel, half2(3, 4)));
