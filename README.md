@@ -12,8 +12,8 @@ Learn more about the implement details at [here](https://cjt-jackton.github.io/p
 - Universal Rendering Pipeline 7.4.1
 
 ## Resources
-- TV model - [Television 01](https://3dmodelhaven.com/model/?c=furniture&m=Television_01) by 3D Model Haven
-- Skybox - [Lebombo](https://hdrihaven.com/hdri/?h=lebombo) by HDRI Haven
+- Model - [Television 01](https://3dmodelhaven.com/model/?c=furniture&m=Television_01) by Gabriel Radić
+- Skybox - [Lebombo](https://hdrihaven.com/hdri/?h=lebombo) by Greg Zaal
 
 ## License
 #### Code
