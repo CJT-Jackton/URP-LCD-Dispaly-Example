@@ -6,13 +6,13 @@ namespace UnityEditor.Rendering.Universal.ShaderGUI
     internal class LCDDisplayUnlitShader : BaseShaderGUI
     {
         // Properties
-        private LCDDisplayBaseShaderGUI.LCDDisplayProperties lcdProperties;
+        private LCDDisplayGUI.LCDDisplayProperties lcdProperties;
 
         // collect properties from the material properties
         public override void FindProperties(MaterialProperty[] properties)
         {
             base.FindProperties(properties);
-            lcdProperties = new LCDDisplayBaseShaderGUI.LCDDisplayProperties(properties);
+            lcdProperties = new LCDDisplayGUI.LCDDisplayProperties(properties);
         }
 
         // material changed check
@@ -21,7 +21,7 @@ namespace UnityEditor.Rendering.Universal.ShaderGUI
             if (material == null)
                 throw new ArgumentNullException("material");
 
-            SetMaterialKeywords(material);
+            SetMaterialKeywords(material, LCDDisplayGUI.SetMaterialKeywords);
         }
 
         // material main surface options
@@ -49,7 +49,7 @@ namespace UnityEditor.Rendering.Universal.ShaderGUI
         public override void DrawSurfaceInputs(Material material)
         {
             base.DrawSurfaceInputs(material);
-            LCDDisplayBaseShaderGUI.DoLCDDisplay(lcdProperties, materialEditor);
+            LCDDisplayGUI.DoLCDDisplay(lcdProperties, materialEditor);
             DrawTileOffset(materialEditor, baseMapProp);
         }
 

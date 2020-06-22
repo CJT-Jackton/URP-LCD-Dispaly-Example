@@ -9,14 +9,14 @@ namespace UnityEditor.Rendering.Universal.ShaderGUI
     {
         // Properties
         private LitGUI.LitProperties litProperties;
-        private LCDDisplayBaseShaderGUI.LCDDisplayProperties lcdProperties;
+        private LCDDisplayGUI.LCDDisplayProperties lcdProperties;
 
         // collect properties from the material properties
         public override void FindProperties(MaterialProperty[] properties)
         {
             base.FindProperties(properties);
             litProperties = new LitGUI.LitProperties(properties);
-            lcdProperties = new LCDDisplayBaseShaderGUI.LCDDisplayProperties(properties);
+            lcdProperties = new LCDDisplayGUI.LCDDisplayProperties(properties);
         }
 
         // material changed check
@@ -25,7 +25,7 @@ namespace UnityEditor.Rendering.Universal.ShaderGUI
             if (material == null)
                 throw new ArgumentNullException("material");
 
-            SetMaterialKeywords(material, LitGUI.SetMaterialKeywords);
+            SetMaterialKeywords(material, LitGUI.SetMaterialKeywords, LCDDisplayGUI.SetMaterialKeywords);
         }
 
         // material main surface options
@@ -57,7 +57,7 @@ namespace UnityEditor.Rendering.Universal.ShaderGUI
             base.DrawSurfaceInputs(material);
             LitGUI.Inputs(litProperties, materialEditor, material);
             DrawEmissionProperties(material, true);
-            LCDDisplayBaseShaderGUI.DoLCDDisplay(lcdProperties, materialEditor);
+            LCDDisplayGUI.DoLCDDisplay(lcdProperties, materialEditor);
             DrawTileOffset(materialEditor, baseMapProp);
         }
 

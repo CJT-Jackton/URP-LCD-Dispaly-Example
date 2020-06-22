@@ -10,6 +10,7 @@ float4 _PixelMask_TexelSize;
 half4 _BaseColor;
 half _Cutoff;
 half _PixelLuma;
+half _PixelLayoutOffset;
 CBUFFER_END
 
 TEXTURE2D(_PixelMask);            SAMPLER(sampler_PixelMask);

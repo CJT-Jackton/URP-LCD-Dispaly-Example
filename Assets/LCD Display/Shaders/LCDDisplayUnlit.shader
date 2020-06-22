@@ -8,6 +8,8 @@
 
         [NoScaleOffset] _PixelMask("Pixel Mask", 2D) = "white" {}
         _PixelLuma("Pixel Luma", Float) = 4.0
+        [Enum(Square, 0, OffsetSquare, 1, Arrow, 2, Triangular, 3)] _PixelLayout("Pixel Layout", Float) = 0.0
+        _PixelLayoutOffset("Pixel Layout Offset", Float) = 0.0
 
         // BlendMode
         [HideInInspector] _Surface("__surface", Float) = 0.0
@@ -48,12 +50,17 @@
             #pragma shader_feature _ALPHATEST_ON
             #pragma shader_feature _ALPHAPREMULTIPLY_ON
 
+            #pragma shader_feature _PIXELLAYOUT_SQUARE _PIXELLAYOUT_OFFSET_SQUARE _PIXELLAYOUT_ARROW _PIXELLAYOUT_TRIANGULAR
+
             // -------------------------------------
             // Unity defined keywords
             #pragma multi_compile_fog
             #pragma multi_compile_instancing
 
             #include "LCDDisplayUnlitInput.hlsl"
+            #include "LCDDisplayCommon.hlsl"
+
+            //#define _PIXEL_LAYOUT_SQUARE
 
             struct Attributes
             {
@@ -98,28 +105,46 @@
                 UNITY_SETUP_INSTANCE_ID(input);
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
 
-                half2 uv = input.uv;
-                half2 pixelMaskUV = uv * _BaseMap_TexelSize.zw;
-                half2 pixelMaskTexcoord = pixelMaskUV * _PixelMask_TexelSize.zw;
+                float2 uv = input.uv;
+                float2 duvdx = ddx(uv);
+                float2 duvdy = ddy(uv);
 
-                // The OpenGL Graphics System: A Specification 4.2
-                //  - chapter 3.9.11, equation 3.21
-                half2 duvdx = ddx(pixelMaskTexcoord);
-                half2 duvdy = ddy(pixelMaskTexcoord);
+                float2 dpdx = duvdx * _BaseMap_TexelSize.zw;
+                float2 dpdy = duvdy * _BaseMap_TexelSize.zw;
 
-                half scaleFactor = max(dot(duvdx, duvdx), dot(duvdy, duvdy));
-                half mipmapLevel = 0.5 * log2(scaleFactor);
+                float2 pixelMaskUV;
+                float2 pixelizedUV;
+
+#if defined(_PIXELLAYOUT_SQUARE)
+                pixelMaskUV = uv * _BaseMap_TexelSize.zw;
+                pixelizedUV = floor(pixelMaskUV) + float2(0.5, 0.5);
+                pixelizedUV /= _BaseMap_TexelSize.zw;
+
+#elif defined(_PIXELLAYOUT_OFFSET_SQUARE)
+                pixelMaskUV = uv * _BaseMap_TexelSize.zw;
+                OffsetSquareCoordinate(pixelMaskUV, _PixelLayoutOffset, pixelizedUV);
+                pixelizedUV /= _BaseMap_TexelSize.zw;
+
+#elif defined(_PIXELLAYOUT_ARROW)
+                pixelMaskUV = uv * _BaseMap_TexelSize.zw;
+                ArrowCoordinate(pixelMaskUV, _PixelLayoutOffset, pixelizedUV);
+                pixelizedUV /= _BaseMap_TexelSize.zw;
+
+#elif defined(_PIXELLAYOUT_TRIANGULAR)
+                pixelMaskUV = uv * _BaseMap_TexelSize.zw;
+                TriangularCoordinate(pixelMaskUV, float2(_PixelLayoutOffset, 1.0), pixelizedUV);
+                pixelizedUV /= _BaseMap_TexelSize.zw;
+#endif
+
+                half mipmapLevel = ComputeTextureLOD(dpdx, dpdy, _PixelMask_TexelSize.zw);
 
                 half pixelization = saturate(Remap01(mipmapLevel, half2(1, 4)));
                 half pixelremoval = saturate(Remap01(mipmapLevel, half2(3, 4)));
 
-                half2 pixelizedUV = floor(pixelMaskUV) + half2(0.5, 0.5);
-                pixelizedUV /= _BaseMap_TexelSize.zw;
-
                 uv = lerp(pixelizedUV, uv, pixelization);
-                half4 texColor = SAMPLE_TEXTURE2D(_BaseMap, sampler_BaseMap, uv);
+                half4 texColor = SAMPLE_TEXTURE2D_GRAD(_BaseMap, sampler_BaseMap, uv, duvdx, duvdy);
 
-                half4 pixelMaskColor = SAMPLE_TEXTURE2D(_PixelMask, sampler_PixelMask, pixelMaskUV);
+                half4 pixelMaskColor = SAMPLE_TEXTURE2D_GRAD(_PixelMask, sampler_PixelMask, pixelMaskUV, dpdx, dpdy);
                 pixelMaskColor *= _PixelLuma;
                 pixelMaskColor = lerp(pixelMaskColor, half4(1, 1, 1, 1), pixelremoval);
 
@@ -132,6 +157,7 @@
 #endif
 
                 color = MixFog(color, input.fogCoord);
+                alpha = OutputAlpha(alpha);
 
                 return half4(color, alpha);
             }

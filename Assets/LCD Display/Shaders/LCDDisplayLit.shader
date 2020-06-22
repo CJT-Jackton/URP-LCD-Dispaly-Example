@@ -34,6 +34,8 @@
 
         [NoScaleOffset] _PixelMask("Pixel Mask", 2D) = "white" {}
         _PixelLuma("Pixel Luma", Float) = 4.0
+        [Enum(Square, 0, OffsetSquare, 1, Arrow, 2, Triangular, 3)] _PixelLayout("Pixel Layout", Float) = 0.0
+        _PixelLayoutOffset("Pixel Layout Offset", Float) = 0.0
 
         // Blending state
         [HideInInspector] _Surface("__surface", Float) = 0.0
@@ -99,6 +101,8 @@
             #pragma shader_feature _SPECULAR_SETUP
             #pragma shader_feature _RECEIVE_SHADOWS_OFF
 
+            #pragma shader_feature _PIXELLAYOUT_SQUARE _PIXELLAYOUT_OFFSET_SQUARE _PIXELLAYOUT_ARROW _PIXELLAYOUT_TRIANGULAR
+
             // -------------------------------------
             // Universal Pipeline keywords
             #pragma multi_compile _ _MAIN_LIGHT_SHADOWS
@@ -122,7 +126,7 @@
             #pragma fragment LitPassFragment
 
             #include "LCDDisplayLitInput.hlsl"
-            #include "Packages/com.unity.render-pipelines.universal/Shaders/LitForwardPass.hlsl"
+            #include "LCDDisplayLitForwardPass.hlsl"
             ENDHLSL
         }
 

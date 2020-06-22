@@ -5,6 +5,8 @@
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/CommonMaterial.hlsl"
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/SurfaceInput.hlsl"
 
+#include "LCDDisplayCommon.hlsl"
+
 CBUFFER_START(UnityPerMaterial)
 float4 _BaseMap_ST;
 float4 _EmissionMap_TexelSize;
@@ -18,6 +20,7 @@ half _Metallic;
 half _BumpScale;
 half _OcclusionStrength;
 half _PixelLuma;
+half _PixelLayoutOffset;
 CBUFFER_END
 
 TEXTURE2D(_OcclusionMap);       SAMPLER(sampler_OcclusionMap);
@@ -41,6 +44,52 @@ half3 SampleLCDDiplay(float2 uv, half3 emissionColor, TEXTURE2D_PARAM(emissionMa
 #ifndef _EMISSION
     return 0;
 #else
+    float2 duvdx = ddx(uv);
+    float2 duvdy = ddy(uv);
+    
+    float2 dpdx = duvdx * _EmissionMap_TexelSize.zw;
+    float2 dpdy = duvdy * _EmissionMap_TexelSize.zw;
+    
+    float2 pixelMaskUV;
+    float2 pixelizedUV;
+
+#if defined(_PIXELLAYOUT_SQUARE)
+    pixelMaskUV = uv * _EmissionMap_TexelSize.zw;
+    pixelizedUV = floor(pixelMaskUV) + float2(0.5, 0.5);
+    pixelizedUV /= _EmissionMap_TexelSize.zw;
+
+#elif defined(_PIXELLAYOUT_OFFSET_SQUARE)
+    pixelMaskUV = uv * _EmissionMap_TexelSize.zw;
+    OffsetSquareCoordinate(pixelMaskUV, _PixelLayoutOffset, pixelizedUV);
+    pixelizedUV /= _EmissionMap_TexelSize.zw;
+
+#elif defined(_PIXELLAYOUT_ARROW)
+    pixelMaskUV = uv * _EmissionMap_TexelSize.zw;
+    ArrowCoordinate(pixelMaskUV, _PixelLayoutOffset, pixelizedUV);
+    pixelizedUV /= _EmissionMap_TexelSize.zw;
+
+#elif defined(_PIXELLAYOUT_TRIANGULAR)
+    pixelMaskUV = uv * _EmissionMap_TexelSize.zw;
+    TriangularCoordinate(pixelMaskUV, float2(_PixelLayoutOffset, 1.0), pixelizedUV);
+    pixelizedUV /= _EmissionMap_TexelSize.zw;
+#endif
+
+    half mipmapLevel = ComputeTextureLOD(dpdx, dpdy, _PixelMask_TexelSize.zw);
+
+    half pixelization = saturate(Remap01(mipmapLevel, half2(1, 4)));
+    half pixelremoval = saturate(Remap01(mipmapLevel, half2(3, 4)));
+
+    uv = lerp(pixelizedUV, uv, pixelization);
+    half3 color = SAMPLE_TEXTURE2D_GRAD(emissionMap, sampler_emissionMap, uv, duvdx, duvdy);
+
+    half3 pixelMaskColor = SAMPLE_TEXTURE2D_GRAD(_PixelMask, sampler_PixelMask, pixelMaskUV, dpdx, dpdy).rgb;
+    pixelMaskColor *= _PixelLuma;
+    pixelMaskColor = lerp(pixelMaskColor, half3(1, 1, 1), pixelremoval);
+
+/*
+    float2 dpdx = ddx(uv);
+    float2 dpdy = ddy(uv);
+
     float2 pixelMaskUV = uv * _EmissionMap_TexelSize.zw;
     float2 pixelMaskTexcoord = pixelMaskUV * _PixelMask_TexelSize.zw;
 
@@ -50,8 +99,8 @@ half3 SampleLCDDiplay(float2 uv, half3 emissionColor, TEXTURE2D_PARAM(emissionMa
     half2 duvdy = ddy(pixelMaskTexcoord);
 
     half scaleFactor = max(dot(duvdx, duvdx), dot(duvdy, duvdy));
-    half mipmapLevel = 0.5 * log2(scaleFactor);
-    //half mipmapLevel = ComputeTextureLOD(pixelMaskUV, _PixelMask_TexelSize.zw);
+    //half mipmapLevel = 0.5 * log2(scaleFactor);
+    half mipmapLevel = ComputeTextureLOD(pixelMaskUV, _PixelMask_TexelSize.zw);
     //half mipmapLevel = CALCULATE_TEXTURE2D_LOD(_PixelMask, sampler_PixelMask, pixelMaskUV);
 
     half pixelization = saturate(Remap01(mipmapLevel, half2(1, 4)));
@@ -66,7 +115,8 @@ half3 SampleLCDDiplay(float2 uv, half3 emissionColor, TEXTURE2D_PARAM(emissionMa
     half3 pixelMaskColor = SAMPLE_TEXTURE2D(_PixelMask, sampler_PixelMask, pixelMaskUV).rgb;
     pixelMaskColor *= _PixelLuma;
     pixelMaskColor = lerp(pixelMaskColor, half3(1, 1, 1), pixelremoval);
-
+    */
+    
     return color * pixelMaskColor * emissionColor;
 #endif
 }
@@ -114,7 +164,7 @@ half SampleOcclusion(float2 uv)
 #endif
 }
 
-inline void InitializeStandardLitSurfaceData(float2 uv, out SurfaceData outSurfaceData)
+inline void InitializeLCDDisplayLitSurfaceData(float2 uv, out SurfaceData outSurfaceData)
 {
     half4 albedoAlpha = SampleAlbedoAlpha(uv, TEXTURE2D_ARGS(_BaseMap, sampler_BaseMap));
     outSurfaceData.alpha = Alpha(albedoAlpha.a, _BaseColor, _Cutoff);
