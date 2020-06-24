@@ -22,7 +22,8 @@ Material:
   m_PrefabAsset: {fileID: 0}
   m_Name: LCD IPS
   m_Shader: {fileID: 4800000, guid: 0b389b4dd4a2a8d4c908e316444cb5fd, type: 3}
-  m_ShaderKeywords: _EMISSION _METALLICSPECGLOSSMAP _NORMALMAP _PIXELLAYOUT_ARROW
+  m_ShaderKeywords: _COLORWASHOUT_IPS _EMISSION _METALLICSPECGLOSSMAP _NORMALMAP
+    _PIXELLAYOUT_ARROW
   m_LightmapFlags: 2
   m_EnableInstancingVariants: 0
   m_DoubleSidedGI: 0
@@ -69,6 +70,7 @@ Material:
     - _AlphaClip: 0
     - _Blend: 0
     - _BumpScale: 1
+    - _ColorWashout: 2
     - _Cull: 2
     - _Cutoff: 0.5
     - _DstBlend: 0

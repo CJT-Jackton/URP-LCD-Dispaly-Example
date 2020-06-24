@@ -36,6 +36,7 @@
         _PixelLuma("Pixel Luma", Float) = 4.0
         [Enum(Square, 0, OffsetSquare, 1, Arrow, 2, Triangular, 3)] _PixelLayout("Pixel Layout", Float) = 0.0
         _PixelLayoutOffset("Pixel Layout Offset", Float) = 0.0
+        [Enum(None, 0, Simple, 1, IPS, 2, VA, 3, TN, 4)] _ColorWashout("Color Washout", Float) = 0.0
 
         // Blending state
         [HideInInspector] _Surface("__surface", Float) = 0.0
@@ -102,6 +103,7 @@
             #pragma shader_feature _RECEIVE_SHADOWS_OFF
 
             #pragma shader_feature _PIXELLAYOUT_SQUARE _PIXELLAYOUT_OFFSET_SQUARE _PIXELLAYOUT_ARROW _PIXELLAYOUT_TRIANGULAR
+            #pragma shader_feature _COLORWASHOUT_NONE _COLORWASHOUT_SIMPLE _COLORWASHOUT_IPS _COLORWASHOUT_VA _COLORWASHOUT_TN
 
             // -------------------------------------
             // Universal Pipeline keywords

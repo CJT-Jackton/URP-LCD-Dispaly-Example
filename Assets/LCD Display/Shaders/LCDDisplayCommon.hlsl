@@ -2,6 +2,7 @@
 #define UNIVERSAL_LCD_DISPLAY_COMMON_INCLUDED
 
 #include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Macros.hlsl"
+#include "Packages/com.unity.render-pipelines.core/ShaderLibrary/Color.hlsl"
 
 /////////////////////////////////////////////////////////////////////
 //              Texture coordinate helper functions                //
@@ -66,60 +67,110 @@ void TriangularCoordinate(inout float2 uv, float2 tri, out float2 cell)
 }
 
 /////////////////////////////////////////////////////////////////////
-//                  Color Shift functions                          //
+//                     Color Shift functions                       //
 /////////////////////////////////////////////////////////////////////
-void brightnessLossVertical(inout half brightness, half angle)
+half3 ColorWashoutHorizontalSimple(half cosH)
 {
-    brightness *= 1;
+    return half3(cosH, cosH, cosH);
 }
 
-void brightnessLossHorizontal(inout half brightness, half angle)
+half3 ColorWashoutVerticalSimple(half cosV)
 {
-    brightness *= cos(HALF_PI * pow(angle, 1.04)) * (1 - pow(angle, 8.8));
+    return half3(cosV, cosV, cosV);
 }
 
-void brightnessLoss(inout half brightness, half3 viewDir, half3 normal, half3 horizontalDir, half3 verticalDir)
+// IPS (in-plane switching) Panel
+// Data Source: LG 27UK650-W
+//  - https://www.rtings.com/monitor/reviews/lg/27uk650-w
+half3 ColorWashoutHorizontalIPS(half cosH)
 {
-    // The projection of view direction vector on the surface plane
-    // http://www.euclideanspace.com/maths/geometry/elements/plane/lineOnPlane/index.htm
-    half3 viewProj = cross(cross(normal, viewDir), normal);
+    half s = sin(HALF_PI * cosH);
+    half r = lerp(s, cosH, 0.314);
+    half g = lerp(s, cosH, 0.5);
+    half b = lerp(s, cosH, 0.72);
 
-    float angleH = acos(dot(viewProj, horizontalDir)) * INV_PI;
-    float angleV = acos(dot(viewProj, verticalDir)) * INV_PI;
-
-    brightnessLossHorizontal(brightness, angleH);
-    brightnessLossVertical(brightness, angleV);
+    return half3(r, g, b);
 }
 
-void ColorWashoutHorizontalIPS(inout half3 color, half angle)
+half3 ColorWashoutVerticalIPS(half cosV)
 {
-    half r = cos(HALF_PI * angle) + 0.25 * (1 / (abs(angle - 0.4) + 1) - 1 / 1.4);
-    half g = cos(HALF_PI * angle) + 0.185 * (1 / (abs(angle - 0.4) + 1) - 1 / 1.4);
-    half b = cos(HALF_PI * angle);
+    half r = cosV + 1.0 / 4.57 * PositivePow(sin(PI * PositivePow(cosV, 0.76)), 6.5);
+    half g = cosV + 1.0 / 4.05 * PositivePow(sin(PI * PositivePow(cosV, 0.73)), 5.43);
+    half b = cosV + 1.0 / 3.07 * PositivePow(sin(PI * PositivePow(cosV, 0.694)), 3.25);
 
-    color *= half3(r, g, b);
+    return half3(r, g, b);
 }
 
-void ColorWashoutVerticalIPS(inout half3 color, half angle)
+// VA (Vertical Alignment) Panel
+// Data Source: Philips Momentum 436M6VBPAB
+//  - https://www.rtings.com/monitor/reviews/philips/momentum-436m6vbpab
+half3 ColorWashoutHorizontalVA(half cosH)
 {
-    half r = cos(HALF_PI * angle) + 0.25 * (1 / (abs(angle - 0.4) + 1) - 1 / 1.4);
-    half g = cos(HALF_PI * angle) + 0.185 * (1 / (abs(angle - 0.4) + 1) - 1 / 1.4);
-    half b = cos(HALF_PI * angle);
+    half r = cosH + 1.0 / 5.1 * sin(PI * PositivePow(cosH, 0.5)) - 1.0 / 20.0 * sin(PI * PositivePow(cosH, 4.5));
+    half g = cosH + 1.0 / 4.14 * sin(PI * PositivePow(cosH, 0.5)) - 1.0 / 22.7 * sin(PI * PositivePow(cosH, 4.5));
+    half b = cosH + 1.0 / 6.05 * sin(PI * PositivePow(cosH, 0.44)) - 1.0 / 19.0 * sin(PI * PositivePow(cosH, 3.43));
 
-    color *= half3(r, g, b);
+    return half3(r, g, b);
+}
+
+half3 ColorWashoutVerticalVA(half cosV)
+{
+    return half3(cosV, cosV, cosV);
+}
+
+// TN (Twisted Nematic) Panel
+// Data Source: Dell S2716DG
+//  - https://www.rtings.com/monitor/reviews/dell/s2716dgr-s2716dg
+half3 ColorWashoutHorizontalTN(half cosH)
+{
+    return half3(cosH, cosH, cosH);
+}
+
+half3 ColorWashoutVerticalTN(half cosV)
+{
+    return half3(cosV, cosV, cosV);
 }
 
 void ColorWashout(inout half3 color, half3 viewDir, half3 normal, half3 horizontalDir, half3 verticalDir)
 {
-    // The projection of view direction vector on the surface plane
-    // http://www.euclideanspace.com/maths/geometry/elements/plane/lineOnPlane/index.htm
-    half3 viewProj = cross(cross(normal, viewDir), normal);
+    half3 viewProjH = cross(cross(verticalDir, viewDir), verticalDir);
+    half3 viewProjV = cross(cross(horizontalDir, viewDir), horizontalDir);
 
-    float angleH = dot(viewProj, horizontalDir);
-    float angleV = dot(viewProj, verticalDir);
+    float cosH = dot(normalize(viewProjH), normal);
+    float cosV = dot(normalize(viewProjV), normal);
 
-    ColorWashoutHorizontalIPS(color, abs(angleH));
-    ColorWashoutVerticalIPS(color, abs(angleV));
+    half3 colorWashoutH, colorWashoutV;
+
+#if _COLORWASHOUT_NONE
+    colorWashoutH = half3(1.0, 1.0, 1.0);
+    colorWashoutV = half3(1.0, 1.0, 1.0);
+#elif _COLORWASHOUT_SIMPLE
+    colorWashoutH = ColorWashoutHorizontalSimple(cosH);
+    colorWashoutV = ColorWashoutVerticalSimple(cosV);
+
+    colorWashoutH = SRGBToLinear(colorWashoutH);
+    colorWashoutV = SRGBToLinear(colorWashoutV);
+#elif _COLORWASHOUT_IPS
+    colorWashoutH = ColorWashoutHorizontalIPS(cosH);
+    colorWashoutV = ColorWashoutVerticalIPS(cosV);
+
+    colorWashoutH = SRGBToLinear(colorWashoutH);
+    colorWashoutV = SRGBToLinear(colorWashoutV);
+#elif _COLORWASHOUT_VA
+    colorWashoutH = ColorWashoutHorizontalVA(cosH);
+    colorWashoutV = ColorWashoutVerticalVA(cosV);
+
+    colorWashoutH = SRGBToLinear(colorWashoutH);
+    colorWashoutV = SRGBToLinear(colorWashoutV);
+#elif _COLORWASHOUT_TN
+    colorWashoutH = ColorWashoutHorizontalTN(cosH);
+    colorWashoutV = ColorWashoutVerticalTN(cosV);
+
+    colorWashoutH = SRGBToLinear(colorWashoutH);
+    colorWashoutV = SRGBToLinear(colorWashoutV);
+#endif
+
+    color *= colorWashoutH * colorWashoutV;
 }
 
 #endif // UNIVERSAL_LCD_DISPLAY_COMMON_INCLUDED

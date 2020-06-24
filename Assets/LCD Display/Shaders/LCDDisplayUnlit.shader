@@ -60,8 +60,6 @@
             #include "LCDDisplayUnlitInput.hlsl"
             #include "LCDDisplayCommon.hlsl"
 
-            //#define _PIXEL_LAYOUT_SQUARE
-
             struct Attributes
             {
                 float4 positionOS       : POSITION;

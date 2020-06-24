@@ -86,37 +86,6 @@ half3 SampleLCDDiplay(float2 uv, half3 emissionColor, TEXTURE2D_PARAM(emissionMa
     pixelMaskColor *= _PixelLuma;
     pixelMaskColor = lerp(pixelMaskColor, half3(1, 1, 1), pixelremoval);
 
-/*
-    float2 dpdx = ddx(uv);
-    float2 dpdy = ddy(uv);
-
-    float2 pixelMaskUV = uv * _EmissionMap_TexelSize.zw;
-    float2 pixelMaskTexcoord = pixelMaskUV * _PixelMask_TexelSize.zw;
-
-    // The OpenGL Graphics System: A Specification 4.2
-    //  - chapter 3.9.11, equation 3.21
-    half2 duvdx = ddx(pixelMaskTexcoord);
-    half2 duvdy = ddy(pixelMaskTexcoord);
-
-    half scaleFactor = max(dot(duvdx, duvdx), dot(duvdy, duvdy));
-    //half mipmapLevel = 0.5 * log2(scaleFactor);
-    half mipmapLevel = ComputeTextureLOD(pixelMaskUV, _PixelMask_TexelSize.zw);
-    //half mipmapLevel = CALCULATE_TEXTURE2D_LOD(_PixelMask, sampler_PixelMask, pixelMaskUV);
-
-    half pixelization = saturate(Remap01(mipmapLevel, half2(1, 4)));
-    half pixelremoval = saturate(Remap01(mipmapLevel, half2(3, 4)));
-
-    half2 pixelizedUV = floor(pixelMaskUV) + half2(0.5, 0.5);
-    pixelizedUV /= _EmissionMap_TexelSize.zw;
-
-    uv = lerp(pixelizedUV, uv, pixelization);
-    half3 color = SAMPLE_TEXTURE2D(emissionMap, sampler_emissionMap, uv).rgb;
-
-    half3 pixelMaskColor = SAMPLE_TEXTURE2D(_PixelMask, sampler_PixelMask, pixelMaskUV).rgb;
-    pixelMaskColor *= _PixelLuma;
-    pixelMaskColor = lerp(pixelMaskColor, half3(1, 1, 1), pixelremoval);
-    */
-    
     return color * pixelMaskColor * emissionColor;
 #endif
 }

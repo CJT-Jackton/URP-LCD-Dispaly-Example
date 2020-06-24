@@ -3,6 +3,8 @@
 
 #include "Packages/com.unity.render-pipelines.universal/ShaderLibrary/Lighting.hlsl"
 
+#include "LCDDisplayCommon.hlsl"
+
 struct Attributes
 {
     float4 positionOS   : POSITION;
@@ -23,9 +25,7 @@ struct Varyings
 #endif
 
     float3 normalWS                 : TEXCOORD3;
-#ifdef _NORMALMAP
     float4 tangentWS                : TEXCOORD4;    // xyz: tangent, w: sign
-#endif
     float3 viewDirWS                : TEXCOORD5;
 
     half4 fogFactorAndVertexLight   : TEXCOORD6; // x: fogFactor, yzw: vertex light
@@ -72,6 +72,14 @@ void InitializeInputData(Varyings input, half3 normalTS, out InputData inputData
     inputData.bakedGI = SAMPLE_GI(input.lightmapUV, input.vertexSH, inputData.normalWS);
 }
 
+void ApplyColorWashout(Varyings input, InputData inputData, inout SurfaceData surfaceData)
+{
+    float3 horizontalDir = input.tangentWS.xyz;
+    float3 verticalDir = input.tangentWS.w * cross(input.normalWS.xyz, input.tangentWS.xyz);
+
+    ColorWashout(surfaceData.emission, inputData.viewDirectionWS, NormalizeNormalPerPixel(input.normalWS.xyz), horizontalDir, verticalDir);
+}
+
 ///////////////////////////////////////////////////////////////////////////////
 //                  Vertex and Fragment functions                            //
 ///////////////////////////////////////////////////////////////////////////////
@@ -100,10 +108,8 @@ Varyings LitPassVertex(Attributes input)
     // already normalized from normal transform to WS.
     output.normalWS = normalInput.normalWS;
     output.viewDirWS = viewDirWS;
-#ifdef _NORMALMAP
     real sign = input.tangentOS.w * GetOddNegativeScale();
     output.tangentWS = half4(normalInput.tangentWS.xyz, sign);
-#endif
 
     OUTPUT_LIGHTMAP_UV(input.lightmapUV, unity_LightmapST, output.lightmapUV);
     OUTPUT_SH(output.normalWS.xyz, output.vertexSH);
@@ -135,8 +141,12 @@ half4 LitPassFragment(Varyings input) : SV_Target
     InputData inputData;
     InitializeInputData(input, surfaceData.normalTS, inputData);
 
+#if !defined(_COLORWASHOUT_NONE)
+    ApplyColorWashout(input, inputData, surfaceData);
+#endif
+
     half4 color = UniversalFragmentPBR(inputData, surfaceData.albedo, surfaceData.metallic, surfaceData.specular, surfaceData.smoothness, surfaceData.occlusion, surfaceData.emission, surfaceData.alpha);
-    
+
     color.rgb = MixFog(color.rgb, inputData.fogCoord);
     color.a = OutputAlpha(color.a);
 
