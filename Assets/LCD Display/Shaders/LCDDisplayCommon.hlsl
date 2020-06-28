@@ -69,14 +69,12 @@ void TriangularCoordinate(inout float2 uv, float2 tri, out float2 cell)
 /////////////////////////////////////////////////////////////////////
 //                     Color Shift functions                       //
 /////////////////////////////////////////////////////////////////////
-half3 ColorWashoutHorizontalSimple(half cosH)
-{
-    return half3(cosH, cosH, cosH);
-}
 
-half3 ColorWashoutVerticalSimple(half cosV)
+half3 ApplyBrightnessLoss(half3 color, half luminanceOffset)
 {
-    return half3(cosV, cosV, cosV);
+    half3 YCoCg = RGBToYCoCg(color);
+    YCoCg.r = saturate(YCoCg.r + luminanceOffset);
+    return YCoCgToRGB(YCoCg);
 }
 
 // IPS (in-plane switching) Panel
@@ -115,7 +113,21 @@ half3 ColorWashoutHorizontalVA(half cosH)
 
 half3 ColorWashoutVerticalVA(half cosV)
 {
-    return half3(cosV, cosV, cosV);
+    half r = cosV + 1.0 / 4.15 * sin(PI * PositivePow(cosV, 0.5)) - 1.0 / 6.5 * sin(PI * PositivePow(cosV, 2.3));
+    half g = cosV + 1.0 / 3.8 * sin(PI * PositivePow(cosV, 0.5)) - 1.0 / 6.96 * sin(PI * PositivePow(cosV, 2.2));
+    half b = cosV + 1.0 / 4.7 * sin(PI * PositivePow(cosV, 0.64)) - 1.0 / 5.6 * sin(PI * PositivePow(cosV, 2.1));
+
+    return half3(r, g, b);
+}
+
+half BrightnessLossHorizontalVA(half luminance, half cosH)
+{   
+    return 1.0 / 3.6 * sin(PI * PositivePow(1.0 - luminance, 1.32)) * sin(PI * PositivePow(cosH, 0.78));
+}
+
+half BrightnessLossVerticalVA(half luminance, half cosV)
+{   
+    return 1.0 / 3.5 * sin(PI * PositivePow(1.0 - luminance, 2.0)) * sin(PI * PositivePow(cosV, 0.65));
 }
 
 // TN (Twisted Nematic) Panel
@@ -133,44 +145,54 @@ half3 ColorWashoutVerticalTN(half cosV)
 
 void ColorWashout(inout half3 color, half3 viewDir, half3 normal, half3 horizontalDir, half3 verticalDir)
 {
-    half3 viewProjH = cross(cross(verticalDir, viewDir), verticalDir);
-    half3 viewProjV = cross(cross(horizontalDir, viewDir), horizontalDir);
-
-    float cosH = dot(normalize(viewProjH), normal);
-    float cosV = dot(normalize(viewProjV), normal);
+    half3 viewProj = cross(SafeNormalize(cross(normal, viewDir)), normal);
+    float NdotV = dot(viewDir, normal);
 
     half3 colorWashoutH, colorWashoutV;
 
-#if _COLORWASHOUT_NONE
-    colorWashoutH = half3(1.0, 1.0, 1.0);
-    colorWashoutV = half3(1.0, 1.0, 1.0);
-#elif _COLORWASHOUT_SIMPLE
-    colorWashoutH = ColorWashoutHorizontalSimple(cosH);
-    colorWashoutV = ColorWashoutVerticalSimple(cosV);
-
-    colorWashoutH = SRGBToLinear(colorWashoutH);
-    colorWashoutV = SRGBToLinear(colorWashoutV);
+#if _COLORWASHOUT_SIMPLE
+    color *= SRGBToLinear(NdotV);
 #elif _COLORWASHOUT_IPS
-    colorWashoutH = ColorWashoutHorizontalIPS(cosH);
-    colorWashoutV = ColorWashoutVerticalIPS(cosV);
+    colorWashoutH = ColorWashoutHorizontalIPS(NdotV);
+    colorWashoutV = ColorWashoutVerticalIPS(NdotV);
 
     colorWashoutH = SRGBToLinear(colorWashoutH);
     colorWashoutV = SRGBToLinear(colorWashoutV);
+
+    float t = acos(saturate(abs(dot(viewProj, horizontalDir)))) * INV_HALF_PI;
+
+    color *= lerp(colorWashoutH, colorWashoutV, saturate(t));
+    //color *= lerp(colorWashoutH, colorWashoutV, smoothstep(0.0, 1.0, t));
 #elif _COLORWASHOUT_VA
-    colorWashoutH = ColorWashoutHorizontalVA(cosH);
-    colorWashoutV = ColorWashoutVerticalVA(cosV);
+    colorWashoutH = ColorWashoutHorizontalVA(NdotV);
+    colorWashoutV = ColorWashoutVerticalVA(NdotV);
 
     colorWashoutH = SRGBToLinear(colorWashoutH);
     colorWashoutV = SRGBToLinear(colorWashoutV);
+
+    half3 sRGBcolor = LinearToSRGB(color);
+    half luminance = Luminance(sRGBcolor);
+
+    half bH = BrightnessLossHorizontalVA(luminance, NdotV);
+    half bV = BrightnessLossVerticalVA(luminance, NdotV);
+
+    float t = acos(saturate(abs(dot(viewProj, horizontalDir)))) * INV_HALF_PI;
+
+    half luminanceOffset = lerp(bH, bV, t);
+
+    color = SRGBToLinear(ApplyBrightnessLoss(sRGBcolor, luminanceOffset));
+    color *= lerp(colorWashoutH, colorWashoutV, t);
 #elif _COLORWASHOUT_TN
-    colorWashoutH = ColorWashoutHorizontalTN(cosH);
-    colorWashoutV = ColorWashoutVerticalTN(cosV);
+    colorWashoutH = ColorWashoutHorizontalTN(NdotV);
+    colorWashoutV = ColorWashoutVerticalTN(NdotV);
 
     colorWashoutH = SRGBToLinear(colorWashoutH);
     colorWashoutV = SRGBToLinear(colorWashoutV);
-#endif
 
-    color *= colorWashoutH * colorWashoutV;
+    float t = acos(saturate(abs(dot(viewProj, horizontalDir)))) * INV_HALF_PI;
+
+    color *= lerp(colorWashoutH, colorWashoutV, saturate(t));
+#endif
 }
 
 #endif // UNIVERSAL_LCD_DISPLAY_COMMON_INCLUDED
