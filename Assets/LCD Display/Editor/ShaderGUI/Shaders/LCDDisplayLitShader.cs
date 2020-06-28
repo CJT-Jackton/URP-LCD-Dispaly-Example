@@ -43,22 +43,29 @@ namespace UnityEditor.Rendering.Universal.ShaderGUI
             {
                 DoPopup(LitGUI.Styles.workflowModeText, litProperties.workflowMode, Enum.GetNames(typeof(LitGUI.WorkflowMode)));
             }
+
+            base.DrawSurfaceOptions(material);
+
             if (EditorGUI.EndChangeCheck())
             {
                 foreach (var obj in blendModeProp.targets)
-                    MaterialChanged((Material)obj);
+                    MaterialChanged((Material) obj);
             }
-            base.DrawSurfaceOptions(material);
         }
 
         // material main surface inputs
         public override void DrawSurfaceInputs(Material material)
         {
+            EditorGUI.BeginChangeCheck();
             base.DrawSurfaceInputs(material);
             LitGUI.Inputs(litProperties, materialEditor, material);
             DrawEmissionProperties(material, true);
             LCDDisplayGUI.DoLCDDisplay(lcdProperties, materialEditor);
             DrawTileOffset(materialEditor, baseMapProp);
+            if (EditorGUI.EndChangeCheck())
+            {
+                MaterialChanged(material);
+            }
         }
 
         // material main advanced options
@@ -112,19 +119,20 @@ namespace UnityEditor.Rendering.Universal.ShaderGUI
                 surfaceType = SurfaceType.Transparent;
                 blendMode = BlendMode.Alpha;
             }
-            material.SetFloat("_Surface", (float)surfaceType);
-            material.SetFloat("_Blend", (float)blendMode);
+
+            material.SetFloat("_Surface", (float) surfaceType);
+            material.SetFloat("_Blend", (float) blendMode);
 
             if (oldShader.name.Equals("Standard (Specular setup)"))
             {
-                material.SetFloat("_WorkflowMode", (float)LitGUI.WorkflowMode.Specular);
+                material.SetFloat("_WorkflowMode", (float) LitGUI.WorkflowMode.Specular);
                 Texture texture = material.GetTexture("_SpecGlossMap");
                 if (texture != null)
                     material.SetTexture("_MetallicSpecGlossMap", texture);
             }
             else
             {
-                material.SetFloat("_WorkflowMode", (float)LitGUI.WorkflowMode.Metallic);
+                material.SetFloat("_WorkflowMode", (float) LitGUI.WorkflowMode.Metallic);
                 Texture texture = material.GetTexture("_MetallicGlossMap");
                 if (texture != null)
                     material.SetTexture("_MetallicSpecGlossMap", texture);
